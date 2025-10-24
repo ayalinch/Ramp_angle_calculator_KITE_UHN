@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ramp Angle Sandbox • 3D (360°)</title>
+  <style>
+    html,body { height:100%; margin:0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:#0b1020; color:#e6edf3;
+    }
+    canvas { display:block; }
+    .panel {
+      position:fixed; top:12px; left:12px;
+      backdrop-filter: blur(10px);
+      background:rgba(13,17,23,.65);
+      border:1px solid rgba(240,246,252,.12);
+      border-radius:14px; padding:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      max-width: min(92vw, 380px);
+    }
+    .panel h1 { margin:0 0 8px; font-size:16px; letter-spacing:.2px; }
+    .row { display:flex; align-items:center; gap:10px; margin:8px 0; }
+    .row label { width:92px; font-weight:600; font-size:12px; color:#a6b3c3; }
+    .row input[type="range"] { width:180px; }
+    .val { min-width:74px; text-align:right; font-variant-numeric: tabular-nums; color:#c8d1dc; font-size:12px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; border:1px solid rgba(240,246,252,.14); background: rgba(99, 179, 237, .15); color:#bfe0ff; font-size:12px; font-weight:700; }
+    .grid-note { position:fixed; bottom:12px; left:12px; font-size:12px; color:#99a6b6; background:rgba(13,17,23,.55); border:1px solid rgba(240,246,252,.12); padding:6px 10px; border-radius:10px; }
+    .btn { cursor:pointer; padding:6px 10px; border-radius:10px; border:1px solid rgba(240,246,252,.14); background:#111a2f; color:#cfe3ff; font-weight:700; font-size:12px; }
+    .btn:hover { filter:brightness(1.1); }
+    .row .btn { margin-left:auto; }
+    .small { font-size:11px; color:#9eb0c8; }
+    .row input[type="checkbox"] { transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>Ramp Angle Sandbox <span class="pill" id="badge">normal: (0, 1, 0)</span></h1>
+
+    <div class="row">
+      <label for="incline">Incline</label>
+      <input id="incline" type="range" min="0" max="90" step="0.1" value="20" />
+      <div class="val"><span id="inclineVal">20.0</span>°</div>
+    </div>
+
+    <div class="row">
+      <label for="azimuth">Azimuth</label>
+      <input id="azimuth" type="range" min="0" max="360" step="0.1" value="45" />
+      <div class="val"><span id="azimuthVal">45.0</span>°</div>
+    </div>
+
+    <div class="row">
+      <label for="thickness">Thickness</label>
+      <input id="thickness" type="range" min="0.01" max="0.2" step="0.005" value="0.06" />
+      <div class="val"><span id="thicknessVal">0.06</span> m</div>
+    </div>
+
+    <div class="row">
+      <label for="size">Ramp Size</label>
+      <input id="size" type="range" min="1" max="6" step="0.1" value="3.5" />
+      <div class="val"><span id="sizeVal">3.5</span> m</div>
+    </div>
+
+    <div class="row">
+      <label>Degrees</label>
+      <div class="small">X (incline), Y (azimuth). Camera rotates freely with mouse.</div>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+
+    <div class="row small">
+      <label>Snap</label>
+      <input id="snap5" type="checkbox" checked /> 5°
+      <input id="snap1" type="checkbox" style="margin-left:10px" /> 1°
+    </div>
+  </div>
+
+  <div class="grid-note">Drag: rotate • Wheel: zoom • Right-drag: pan</div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+    // ----- Scene -----
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1020);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
+    camera.position.set(6, 4, 6);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(0, 0.5, 0);
+
+    // ----- Lights -----
+    const hemi = new THREE.HemisphereLight(0xc2e9fb, 0x0b1020, 0.8);
+    scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(3, 6, 4);
+    dir.castShadow = true;
+    scene.add(dir);
+
+    // ----- Ground Grid + Axes -----
+    const grid = new THREE.GridHelper(20, 20, 0x3a4b71, 0x1f2c4b);
+    grid.position.y = 0;
+    scene.add(grid);
+
+    const axes = new THREE.AxesHelper(2.2); // X:red, Y:green, Z:blue
+    scene.add(axes);
+
+    // ----- Ramp -----
+    let rampMesh;
+    const rampMat = new THREE.MeshStandardMaterial({ color:0x5da0ff, metalness:0.1, roughness:0.6 });
+
+    function makeRamp(size=3.5, thickness=0.06){
+      if (rampMesh) { scene.remove(rampMesh); rampMesh.geometry.dispose(); }
+      const geo = new THREE.BoxGeometry(size, thickness, size*1.2, 1,1,1);
+      rampMesh = new THREE.Mesh(geo, rampMat);
+      rampMesh.castShadow = true;
+      rampMesh.receiveShadow = true;
+      // small stand under ramp to show contact point
+      const stand = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08,0.08,0.1, 24),
+        new THREE.MeshStandardMaterial({color:0x98bffb, roughness:.9})
+      );
+      stand.position.y = -thickness/2 - 0.05;
+      rampMesh.add(stand);
+      rampMesh.position.y = 0.5; // lift from ground for clarity
+      scene.add(rampMesh);
+    }
+
+    makeRamp();
+
+    // ----- UI wiring -----
+    const incline = document.getElementById('incline');
+    const azimuth  = document.getElementById('azimuth');
+    const thickness = document.getElementById('thickness');
+    const size = document.getElementById('size');
+    const inclV = document.getElementById('inclineVal');
+    const azimV = document.getElementById('azimuthVal');
+    const thickV = document.getElementById('thicknessVal');
+    const sizeV = document.getElementById('sizeVal');
+    const badge = document.getElementById('badge');
+    const resetBtn = document.getElementById('reset');
+    const snap5 = document.getElementById('snap5');
+    const snap1 = document.getElementById('snap1');
+
+    function snapValue(v){
+      let s = 0.1;
+      if (snap1.checked) s = 1;
+      if (snap5.checked) s = 5;
+      return Math.round(v / s) * s;
+    }
+
+    function updateRamp(){
+      // Update labels
+      const inc = parseFloat(incline.value);
+      const azi = parseFloat(azimuth.value);
+      inclV.textContent = inc.toFixed(1);
+      azimV.textContent = azi.toFixed(1);
+
+      // Convert to radians
+      const incR = THREE.MathUtils.degToRad(inc);
+      const aziR = THREE.MathUtils.degToRad(azi);
+
+      // Rotation order: Y (azimuth around vertical), then X (incline)
+      if (rampMesh){
+        rampMesh.rotation.set(0,0,0);
+        rampMesh.rotation.y = aziR;
+        rampMesh.rotation.x = -incR; // negative to tilt "down" away from camera by default
+      }
+
+      // Normal vector of ramp (start from +Y, then rotate with same euler)
+      const normal = new THREE.Vector3(0,1,0);
+      normal.applyEuler(new THREE.Euler(-incR, aziR, 0, 'XYZ'));
+      badge.textContent = `normal: (${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)})`;
+    }
+
+    function updateThickness(){
+      const t = parseFloat(thickness.value);
+      thickV.textContent = t.toFixed(2);
+      makeRamp(parseFloat(size.value), t);
+      updateRamp();
+    }
+    function updateSize(){
+      const s = parseFloat(size.value);
+      sizeV.textContent = s.toFixed(1);
+      makeRamp(s, parseFloat(thickness.value));
+      updateRamp();
+    }
+
+    // events
+    incline.addEventListener('input', ()=>{ if (snap1.checked||snap5.checked) incline.value = snapValue(parseFloat(incline.value)); updateRamp(); });
+    azimuth.addEventListener('input', ()=>{ if (snap1.checked||snap5.checked) azimuth.value = snapValue(parseFloat(azimuth.value)); updateRamp(); });
+    thickness.addEventListener('input', updateThickness);
+    size.addEventListener('input', updateSize);
+    resetBtn.addEventListener('click', ()=>{
+      incline.value = 20; azimuth.value = 45; thickness.value = 0.06; size.value = 3.5;
+      inclV.textContent = '20.0'; azimV.textContent = '45.0'; thickV.textContent = '0.06'; sizeV.textContent = '3.5';
+      updateSize();
+    });
+
+    // first render
+    updateRamp();
+
+    // ----- Render loop -----
+    function onResize(){
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    }
+    addEventListener('resize', onResize);
+
+    (function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    })();
+  </script>
+</body>
+</html>
