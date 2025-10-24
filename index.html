@@ -2,202 +2,122 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>KITE Ramp Simulator — Stable Build</title>
+<title>KITE Ramp Simulator — Stable Non-Module Build</title>
 <style>
-  body { margin:0; overflow:hidden; background:#111827; font-family: -apple-system, sans-serif; }
+  body { margin:0; overflow:hidden; background:#111827; font-family:-apple-system, sans-serif; }
   #ui {
-    position: fixed; top: 20px; left: 20px; z-index: 10;
-    background: rgba(255,255,255,0.1); padding: 14px 18px;
-    border-radius: 12px; backdrop-filter: blur(10px); color:white;
-    font-size:14px; line-height:1.4; width:220px;
+    position:fixed; top:20px; left:20px; z-index:10;
+    background:rgba(255,255,255,0.08); padding:14px 18px;
+    border-radius:12px; backdrop-filter:blur(10px);
+    color:white; font-size:14px; width:220px;
   }
-  #ui label { margin-top:8px; display:block; font-weight:600; }
-  input[type=range] { width:100%; }
-  select { width:100%; padding:4px; border-radius:6px; background:#1f2937; color:white; border:1px solid #4b5563; }
-  input[type=color] { width:100%; height:28px; border:0; margin-top:6px; border-radius:6px; }
+  label { display:block; margin-top:8px; font-weight:600; }
+  input[type=range], select, input[type=color] { width:100%; margin-top:4px; }
 </style>
 
-<script type="module">
-import * as THREE from "https://cdn.skypack.dev/three@0.157.0";
-import { OrbitControls } from "https://cdn.skypack.dev/three@0.157.0/examples/jsm/controls/OrbitControls.js";
+<!-- ✅ GLOBAL THREE.JS (NO MODULES, ALWAYS WORKS) -->
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 
-let scene, camera, renderer, controls;
-let ramp, mannequin, bones = {};
-let gait = "G1";
-let style = "S1";
-let step = 0;
-let direction = 1;
-
-// ----------------------- Setup Scene -----------------------
-init();
-animate();
-
-function init(){
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color("#111827");
-
-  camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 2000);
-  camera.position.set(5,3,6);
-
-  renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(innerWidth, innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-  const dl = new THREE.DirectionalLight(0xffffff, 1.2);
-  dl.position.set(4,10,5);
-  scene.add(dl);
-
-  // Ramp
-  const rampGeo = new THREE.BoxGeometry(6, 0.15, 2);
-  const rampMat = new THREE.MeshStandardMaterial({color:"#8b8b8b"});
-  ramp = new THREE.Mesh(rampGeo, rampMat);
-  scene.add(ramp);
-
-  // Build mannequin skeleton + mesh
-  buildMannequin();
-
-  // UI hooks
-  document.getElementById("angle").addEventListener("input", e=>{
-    ramp.rotation.z = -THREE.MathUtils.degToRad(+e.target.value);
-  });
-
-  document.getElementById("speed").addEventListener("input", e=>{
-    walkSpeed = +e.target.value;
-  });
-
-  document.getElementById("style").addEventListener("change", e=>{
-    style = e.target.value; applyStyle();
-  });
-
-  document.getElementById("gait").addEventListener("change", e=>{
-    gait = e.target.value;
-  });
-
-  document.getElementById("personColor").addEventListener("input", e=>{
-    mannequin.traverse(o=>{ if(o.isMesh) o.material.color.set(e.target.value); });
-  });
-
-  document.getElementById("rampColor").addEventListener("input", e=>{
-    ramp.material.color.set(e.target.value);
-  });
-
-  addEventListener("resize", ()=>{
-    camera.aspect = innerWidth/innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(innerWidth,innerHeight);
-  });
-}
-
-// ----------------------- Build Mannequin -----------------------
-function buildMannequin(){
-  mannequin = new THREE.Group();
-  scene.add(mannequin);
-
-  const mat = new THREE.MeshStandardMaterial({color:"#ffffff"});
-
-  function limb(w,h,d){
-    return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat.clone());
-  }
-
-  bones.hip = limb(0.4,0.4,0.4);
-  mannequin.add(bones.hip);
-
-  bones.spine = limb(0.3,1.2,0.3);
-  bones.spine.position.y = 1.0;
-  bones.hip.add(bones.spine);
-
-  bones.head = limb(0.6,0.6,0.6);
-  bones.head.position.y = 1.2;
-  bones.spine.add(bones.head);
-
-  bones.armL = limb(0.25,1.0,0.25);
-  bones.armR = limb(0.25,1.0,0.25);
-  bones.armL.position.set(-0.6,0.6,0);
-  bones.armR.position.set(0.6,0.6,0);
-  bones.spine.add(bones.armL,bones.armR);
-
-  bones.legL = limb(0.3,1.2,0.3);
-  bones.legR = limb(0.3,1.2,0.3);
-  bones.legL.position.set(-0.3,-1.0,0);
-  bones.legR.position.set(0.3,-1.0,0);
-  bones.hip.add(bones.legL,bones.legR);
-
-  mannequin.position.set(0,1.1,0);
-}
-
-function applyStyle(){
-  mannequin.traverse(o=>{
-    if(o.isMesh){
-      if(style==="S1") o.material.roughness=0.6, o.material.metalness=0.1;
-      if(style==="S2") o.material.roughness=0.3, o.material.metalness=0.6;
-      if(style==="S3") o.material.wireframe=true;
-    }
-  });
-}
-
-// ----------------------- Animation -----------------------
-let walkSpeed = 1.2;
-
-function animate(){
-  requestAnimationFrame(animate);
-  controls.update();
-  step += 0.04 * walkSpeed;
-
-  // Limbs via sin waves (different profiles per gait type)
-  const f = (gait==="G1") ? Math.sin(step)
-          : (gait==="G2") ? Math.sin(step)*1.5
-          : Math.sin(step*0.5);
-
-  bones.legL.rotation.x = f * 0.6;
-  bones.legR.rotation.x = -f * 0.6;
-  bones.armL.rotation.x = -f * 0.4;
-  bones.armR.rotation.x = f * 0.4;
-
-  // Walking movement along ramp
-  mannequin.position.z += direction * 0.012 * walkSpeed;
-  if(mannequin.position.z>0.8 || mannequin.position.z<-0.8){
-    direction*=-1;
-    mannequin.rotation.y += Math.PI;
-  }
-
-  renderer.render(scene, camera);
-}
-</script>
 </head>
-
 <body>
 
 <div id="ui">
   <label>Ramp Angle</label>
-  <input id="angle" type="range" min="0" max="25" value="7">
+  <input id="angle" type="range" min="0" max="25" value="7"/>
 
   <label>Walk Speed</label>
-  <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1.2">
-
-  <label>Mannequin Style</label>
-  <select id="style">
-    <option value="S1" selected>S1 – Clinical</option>
-    <option value="S2">S2 – Defined</option>
-    <option value="S3">S3 – Stick/Wireframe</option>
-  </select>
-
-  <label>Gait Pattern</label>
-  <select id="gait">
-    <option value="G1" selected>G1 – Standard</option>
-    <option value="G2">G2 – Heel-Strike Emphasis</option>
-    <option value="G3">G3 – Slow Careful</option>
-  </select>
+  <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1.2"/>
 
   <label>Person Color</label>
-  <input id="personColor" type="color" value="#ffffff">
+  <input id="personColor" type="color" value="#ffffff"/>
 
   <label>Ramp Color</label>
-  <input id="rampColor" type="color" value="#8b8b8b">
+  <input id="rampColor" type="color" value="#818181"/>
 </div>
 
+<script>
+let scene = new THREE.Scene();
+scene.background = new THREE.Color("#111827");
+
+let camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(5,3,6);
+
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+let controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+let dl = new THREE.DirectionalLight(0xffffff, 1.2);
+dl.position.set(5,10,5);
+scene.add(dl);
+
+// Ramp
+let ramp = new THREE.Mesh(
+  new THREE.BoxGeometry(6,0.15,2),
+  new THREE.MeshStandardMaterial({color:"#818181"})
+);
+scene.add(ramp);
+
+// Simple mannequin (procedural boxes)
+function part(w,h,d,y){
+  let m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:"#ffffff"}));
+  m.position.y=y; return m;
+}
+let body = part(0.8,1.4,0.5,1.2);
+let legL = part(0.3,1.4,0.3,0.3); legL.position.x=-0.3;
+let legR = part(0.3,1.4,0.3,0.3); legR.position.x=0.3;
+let armL = part(0.25,1.2,0.25,1.4); armL.position.x=-0.8;
+let armR = part(0.25,1.2,0.25,1.4); armR.position.x=0.8;
+let head = part(0.6,0.6,0.6,2.1);
+
+let person = new THREE.Group();
+person.add(body,legL,legR,armL,armR,head);
+scene.add(person);
+person.position.set(0,1.1,0);
+
+// Animation
+let step=0, direction=1, speed=1.2;
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  step+=0.05*speed;
+
+  legL.rotation.x = Math.sin(step)*0.7;
+  legR.rotation.x = -Math.sin(step)*0.7;
+  armL.rotation.x = -Math.sin(step)*0.5;
+  armR.rotation.x = Math.sin(step)*0.5;
+
+  person.position.z += direction * 0.015 * speed;
+  if(person.position.z>0.9 || person.position.z<-0.9){
+    direction*=-1;
+    person.rotation.y += Math.PI;
+  }
+
+  renderer.render(scene,camera);
+}
+animate();
+
+// UI bindings
+document.getElementById("angle").oninput=e=>{
+  ramp.rotation.z = -THREE.MathUtils.degToRad(e.target.value);
+};
+document.getElementById("speed").oninput=e=>{ speed=+e.target.value };
+document.getElementById("personColor").oninput=e=>{
+  person.traverse(o=>{ if(o.isMesh) o.material.color.set(e.target.value) });
+};
+document.getElementById("rampColor").oninput=e=>{
+  ramp.material.color.set(e.target.value);
+};
+
+onresize=()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+};
+</script>
 </body>
 </html>
