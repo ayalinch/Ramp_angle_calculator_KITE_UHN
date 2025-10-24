@@ -1,400 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ramp Angle Sandbox • 3D (360°) + Walker</title>
-  <style>
-    html,body { height:100%; margin:0; }
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background:#0b1020; color:#e6edf3;
-    }
-    canvas { display:block; }
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Ramp Angle Sandbox — KITE UHN</title>
+<style>
+  html,body { margin:0; height:100%; background:#f7f9fc; font-family: -apple-system, system-ui, sans-serif; }
+  canvas { display:block; }
 
-    .panel {
-      position:fixed; top:12px; left:12px;
-      backdrop-filter: blur(10px);
-      background:rgba(13,17,23,.65);
-      border:1px solid rgba(240,246,252,.12);
-      border-radius:14px; padding:12px;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
-      max-width: min(92vw, 400px);
-    }
-    .panel h1 { margin:0 0 8px; font-size:16px; letter-spacing:.2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-    .pill { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; border:1px solid rgba(240,246,252,.14); background: rgba(99, 179, 237, .15); color:#bfe0ff; font-size:12px; font-weight:700; }
-    .row { display:flex; align-items:center; gap:10px; margin:8px 0; }
-    .row label { width:100px; font-weight:600; font-size:12px; color:#a6b3c3; }
-    .row input[type="range"] { width:190px; }
-    .val { min-width:74px; text-align:right; font-variant-numeric: tabular-nums; color:#c8d1dc; font-size:12px; }
-    .small { font-size:11px; color:#9eb0c8; }
-    .btn { cursor:pointer; padding:6px 10px; border-radius:10px; border:1px solid rgba(240,246,252,.14); background:#111a2f; color:#cfe3ff; font-weight:700; font-size:12px; }
-    .btn:hover { filter:brightness(1.1); }
-    .row .btn { margin-left:auto; }
-    .color { width:110px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,.15); background:#111a2f; color:#e6edf3; padding:2px 6px; }
-    .grid-note { position:fixed; bottom:12px; left:12px; font-size:12px; color:#99a6b6; background:rgba(13,17,23,.55); border:1px solid rgba(240,246,252,.12); padding:6px 10px; border-radius:10px; }
-  </style>
+  .panel {
+    position:fixed; top:14px; left:14px; padding:14px 16px;
+    background:rgba(255,255,255,0.85); backdrop-filter: blur(12px);
+    border-radius:14px; border:1px solid #d8dee9; box-shadow:0 8px 30px rgba(0,0,0,.12);
+    max-width:350px;
+  }
+
+  .panel h1 { font-size:16px; margin:0 0 8px; font-weight:700; color:#1a1a1a; }
+
+  .row { display:flex; align-items:center; margin:7px 0; }
+  .row label { width:100px; font-size:13px; color:#222; }
+  .row input[type="range"] { flex:1; }
+  .val { width:50px; text-align:right; font-size:13px; color:#444; }
+
+  .btn {
+    margin-top:6px; padding:6px 10px; font-size:12px; border-radius:8px;
+    border:1px solid #ccc; background:#fff; cursor:pointer; font-weight:600; color:#333;
+  }
+  .btn:hover { background:#f0f0f0; }
+</style>
 </head>
 <body>
-  <div class="panel">
-    <h1>
-      Ramp Angle Sandbox
-      <span class="pill" id="badge">normal: (0, 1, 0)</span>
-      <button class="btn" id="pauseBtn" title="Pause/Play walker">Pause</button>
-    </h1>
 
-    <div class="row">
-      <label for="incline">Incline</label>
-      <input id="incline" type="range" min="0" max="90" step="0.1" value="20" />
-      <div class="val"><span id="inclineVal">20.0</span>°</div>
-    </div>
+<div class="panel">
+  <h1>Ramp Angle Sandbox</h1>
 
-    <div class="row">
-      <label for="azimuth">Azimuth</label>
-      <input id="azimuth" type="range" min="0" max="360" step="0.1" value="45" />
-      <div class="val"><span id="azimuthVal">45.0</span>°</div>
-    </div>
-
-    <div class="row">
-      <label for="thickness">Thickness</label>
-      <input id="thickness" type="range" min="0.01" max="0.2" step="0.005" value="0.06" />
-      <div class="val"><span id="thicknessVal">0.06</span> m</div>
-    </div>
-
-    <div class="row">
-      <label for="size">Ramp Size</label>
-      <input id="size" type="range" min="1" max="6" step="0.1" value="3.5" />
-      <div class="val"><span id="sizeVal">3.5</span> m</div>
-    </div>
-
-    <div class="row">
-      <label for="speed">Walk Speed</label>
-      <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1.2" />
-      <div class="val"><span id="speedVal">1.2</span>x</div>
-    </div>
-
-    <div class="row small" style="margin-top:12px">
-      <label>Snap</label>
-      <input id="snap5" type="checkbox" checked /> 5°
-      <input id="snap1" type="checkbox" style="margin-left:10px" /> 1°
-      <button class="btn" id="reset">Reset</button>
-    </div>
-
-    <div class="row small" style="margin-top:6px">
-      <label>Colors</label>
-      <div style="display:flex; gap:8px; flex-wrap:wrap">
-        <span>
-          <span class="small" style="display:block;margin-bottom:2px">Background</span>
-          <input id="bgColor" type="color" value="#0b1020" class="color" />
-        </span>
-        <span>
-          <span class="small" style="display:block;margin-bottom:2px">Ramp</span>
-          <input id="rampColor" type="color" value="#5da0ff" class="color" />
-        </span>
-        <span>
-          <span class="small" style="display:block;margin-bottom:2px">Person</span>
-          <input id="personColor" type="color" value="#ffd166" class="color" />
-        </span>
-      </div>
-    </div>
+  <div class="row">
+    <label>Incline</label><input id="incline" type="range" min="0" max="45" step="0.1" value="12">
+    <div class="val" id="inclVal">12°</div>
   </div>
 
-  <div class="grid-note">Drag: rotate • Wheel: zoom • Right-drag: pan</div>
+  <div class="row">
+    <label>Azimuth</label><input id="azimuth" type="range" min="0" max="360" step="0.1" value="45">
+    <div class="val" id="aziVal">45°</div>
+  </div>
 
+  <div class="row">
+    <label>Ramp Size</label><input id="size" type="range" min="1" max="6" step="0.1" value="3.5">
+    <div class="val" id="sizeVal">3.5m</div>
+  </div>
 
-  <script type="module">
-  import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js";
-  import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+  <div class="row">
+    <label>Walk Speed</label><input id="speed" type="range" min="0.3" max="3" step="0.1" value="1.2">
+    <div class="val" id="speedVal">1.2×</div>
+  </div>
 
-    // ----- Scene / Renderer / Camera -----
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b1020);
+  <button class="btn" id="resetBtn">Reset</button>
+  <button class="btn" id="pauseBtn">Pause</button>
+</div>
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true });
-    renderer.setPixelRatio(devicePixelRatio);
-    renderer.setSize(innerWidth, innerHeight);
-    document.body.appendChild(renderer.domElement);
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
 
-    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
-    camera.position.set(6, 4, 6);
+<script>
+/* SCENE */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#f7f9fc");
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.target.set(0, 0.6, 0);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
 
-    // ----- Lights -----
-    const hemi = new THREE.HemisphereLight(0xc2e9fb, 0x0b1020, 0.9);
-    scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-    dir.position.set(3, 6, 4);
-    scene.add(dir);
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(6,4,6);
 
-    // ----- Ground Grid + Axes -----
-    const grid = new THREE.GridHelper(20, 20, 0x3a4b71, 0x1f2c4b);
-    grid.position.y = 0;
-    scene.add(grid);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
 
-    const axes = new THREE.AxesHelper(2.2); // X:red, Y:green, Z:blue
-    scene.add(axes);
+/* LIGHTING — Bright Lab */
+scene.add(new THREE.HemisphereLight(0xffffff, 0xdedede, 1.0));
+const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+dir.position.set(4,8,4);
+scene.add(dir);
 
-    // ----- Ramp -----
-    let rampMesh;
-    const rampMat = new THREE.MeshStandardMaterial({ color:0x5da0ff, metalness:0.1, roughness:0.6 });
+/* FLOOR */
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(50,50),
+  new THREE.MeshStandardMaterial({ color:"#ffffff" })
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
 
-    function makeRamp(size=3.5, thickness=0.06){
-      if (rampMesh) { scene.remove(rampMesh); rampMesh.geometry.dispose(); }
-      const geo = new THREE.BoxGeometry(size, thickness, size*1.2, 1,1,1);
-      rampMesh = new THREE.Mesh(geo, rampMat);
-      rampMesh.castShadow = true;
-      rampMesh.receiveShadow = true;
+/* RAMP */
+let ramp;
+function buildRamp(size=3.5){
+  if(ramp) scene.remove(ramp);
+  const geo = new THREE.BoxGeometry(size,0.06,size*1.2);
+  const mat = new THREE.MeshStandardMaterial({ color:"#c7d7ea" });
+  ramp = new THREE.Mesh(geo,mat);
+  ramp.position.y = 0.5;
+  scene.add(ramp);
+}
+buildRamp();
 
-      // small stand under ramp to show contact point
-      const stand = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.08,0.08,0.1, 24),
-        new THREE.MeshStandardMaterial({color:0x98bffb, roughness:.9})
-      );
-      stand.position.y = -thickness/2 - 0.05;
-      rampMesh.add(stand);
+/* PERSON — simple stylized walker */
+const person = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.12,0.6,6,12),
+  new THREE.MeshStandardMaterial({ color:"#e89c3c" })
+);
+person.position.set(0,1,0);
+scene.add(person);
 
-      rampMesh.position.y = 0.5; // lift from ground for clarity
-      scene.add(rampMesh);
-    }
-    makeRamp();
+/* UI STATE */
+let t = 0, dirSign = 1, paused = false;
 
-    // ----- Simple Walker (stick/capsule person) -----
-    const person = new THREE.Group();
-    scene.add(person);
+function update(){
+  const inc = +incline.value;
+  const azi = +azimuth.value;
+  const sizeVal = +size.value;
+  const sp = +speed.value;
+  inclVal.textContent = inc+"°";
+  aziVal.textContent = azi+"°";
+  sizeVal.textContent = sizeVal.toFixed(1)+"m";
+  speedVal.textContent = sp.toFixed(1)+"×";
 
-    // Materials (mutable color)
-    const personMat = new THREE.MeshStandardMaterial({ color: 0xffd166, roughness:0.5, metalness:0.1 });
+  buildRamp(sizeVal);
+  ramp.rotation.set(
+    -THREE.MathUtils.degToRad(inc),
+    THREE.MathUtils.degToRad(azi),
+    0
+  );
 
-    // Body pieces
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 24, 16), personMat);
-    head.position.y = 0.95;
+  if(!paused){
+    t += 0.02 * sp * dirSign;
+    if(Math.abs(t) > (sizeVal*0.6)) dirSign *= -1;
+  }
+  const z = t;
+  const pos = new THREE.Vector3(0,0.53,z);
+  ramp.localToWorld(pos);
+  person.position.copy(pos);
 
-    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.10, 0.45, 6, 12), personMat);
-    torso.position.y = 0.6;
+  requestAnimationFrame(update);
+  controls.update();
+  renderer.render(scene,camera);
+}
+update();
 
-    const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.28, 6, 12), personMat);
-    const armR = armL.clone();
-    armL.position.set(-0.18, 0.65, 0);
-    armR.position.set( 0.18, 0.65, 0);
+resetBtn.onclick = ()=>{
+  incline.value=12;
+  azimuth.value=45;
+  size.value=3.5;
+  speed.value=1.2;
+};
+pauseBtn.onclick = ()=> paused=!paused;
+onresize = ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); };
 
-    const thighL = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.30, 6, 12), personMat);
-    const thighR = thighL.clone();
-    thighL.position.set(-0.09, 0.32, 0);
-    thighR.position.set( 0.09, 0.32, 0);
-
-    const calfL = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.28, 6, 12), personMat);
-    const calfR = calfL.clone();
-    calfL.position.set(0, -0.28, 0);
-    calfR.position.set(0, -0.28, 0);
-
-    const footL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.26), personMat);
-    const footR = footL.clone();
-    footL.position.set(0, -0.53, 0.04);
-    footR.position.set(0, -0.53, 0.04);
-
-    // Build leg hierarchies so rotations look like joints
-    const hipL = new THREE.Group(); hipL.add(thighL); hipL.add(calfL); hipL.add(footL);
-    const hipR = new THREE.Group(); hipR.add(thighR); hipR.add(calfR); hipR.add(footR);
-    hipL.position.set(-0.09, 0.45, 0);
-    hipR.position.set( 0.09, 0.45, 0);
-
-    // Offset pivots for nicer swinging
-    thighL.position.y = -0.1; thighR.position.y = -0.1;
-    calfL.position.y  = -0.28; calfR.position.y  = -0.28;
-
-    person.add(head, torso, armL, armR, hipL, hipR);
-    person.scale.set(1,1,1);
-    person.position.set(0, 0.8, 0); // initial approximate above ramp
-
-    // ----- Walker animation state -----
-    let t = 0;               // time
-    let paused = false;
-    let speedMul = 1.2;      // UI-controlled
-    let dirSign = 1;         // 1 = up, -1 = down (along ramp local -Z/+Z)
-    let pathLen = 1.3;       // will be updated based on ramp size
-    const standOff = 0.05;   // tiny offset above ramp to avoid z-fighting
-
-    // Compute a world position on ramp's top surface given a local (x,z) offset
-    function worldOnRamp(localX, localZ){
-      const y = (rampMesh.geometry.parameters.height/2) + standOff; // top surface
-      const p = new THREE.Vector3(localX, y, localZ);
-      return rampMesh.localToWorld(p.clone());
-    }
-
-    function updateWalker(dt){
-      // Path endpoints along ramp local Z (top surface), centered on x=0
-      const halfZ = (rampMesh.geometry.parameters.depth / 2) * 0.8; // stay inside edges
-      pathLen = halfZ * 2;
-
-      // Progress s goes from -halfZ to +halfZ and back
-      const speed = 0.6 * speedMul;                 // m/s along local Z
-      let s = THREE.MathUtils.clamp((t * speed * dirSign) % pathLen, 0, pathLen) - pathLen/2;
-
-      // Flip direction when we reach ends
-      if (Math.abs(s) >= pathLen/2 - 1e-3) { dirSign *= -1; }
-
-      // Place person on ramp
-      const worldP = worldOnRamp(0, s);
-      person.position.copy(worldP);
-
-      // Align the person upright relative to ramp normal but facing along path
-      const inc = parseFloat(incline.value);
-      const azi = parseFloat(azimuth.value);
-      const incR = THREE.MathUtils.degToRad(inc);
-      const aziR = THREE.MathUtils.degToRad(azi);
-
-      // Compute basis from ramp euler: local forward = +Z rotated by same euler
-      const euler = new THREE.Euler(-incR, aziR, 0, 'XYZ');
-      const forward = new THREE.Vector3(0,0,1).applyEuler(euler).normalize().multiplyScalar(dirSign);
-      const up = new THREE.Vector3(0,1,0).applyEuler(euler).normalize(); // ramp normal
-      const right = new THREE.Vector3().crossVectors(forward, up).normalize();
-      const lookMat = new THREE.Matrix4().makeBasis(right, up, forward);
-      person.quaternion.setFromRotationMatrix(lookMat);
-
-      // Simple walk cycle (sine-based)
-      const w = 6.0 * speedMul; // angular speed
-      const phase = t * w;
-
-      // arms swing opposite to legs
-      armL.rotation.x =  0.6 * Math.sin(phase + Math.PI);
-      armR.rotation.x =  0.6 * Math.sin(phase);
-
-      // thighs swing
-      hipL.rotation.x =  0.8 * Math.sin(phase);
-      hipR.rotation.x =  0.8 * Math.sin(phase + Math.PI);
-
-      // calves add a delayed bend
-      calfL.rotation.x = 0.4 * Math.max(0, Math.sin(phase + Math.PI/2));
-      calfR.rotation.x = 0.4 * Math.max(0, Math.sin(phase + Math.PI/2 + Math.PI));
-
-      // tiny bob
-      person.position.addScaledVector(up, 0.03 * Math.sin(phase*2));
-    }
-
-    // ----- UI wiring -----
-    const incline = document.getElementById('incline');
-    const azimuth  = document.getElementById('azimuth');
-    const thickness = document.getElementById('thickness');
-    const size = document.getElementById('size');
-    const speed = document.getElementById('speed');
-    const inclV = document.getElementById('inclineVal');
-    const azimV = document.getElementById('azimuthVal');
-    const thickV = document.getElementById('thicknessVal');
-    const sizeV = document.getElementById('sizeVal');
-    const speedV = document.getElementById('speedVal');
-    const badge = document.getElementById('badge');
-    const resetBtn = document.getElementById('reset');
-    const snap5 = document.getElementById('snap5');
-    const snap1 = document.getElementById('snap1');
-    const pauseBtn = document.getElementById('pauseBtn');
-
-    const bgColor = document.getElementById('bgColor');
-    const rampColor = document.getElementById('rampColor');
-    const personColor = document.getElementById('personColor');
-
-    function snapValue(v){
-      let s = 0.1;
-      if (snap1.checked) s = 1;
-      if (snap5.checked) s = 5;
-      return Math.round(v / s) * s;
-    }
-
-    function updateRamp(){
-      // Update labels
-      const inc = parseFloat(incline.value);
-      const azi = parseFloat(azimuth.value);
-      inclV.textContent = inc.toFixed(1);
-      azimV.textContent = azi.toFixed(1);
-
-      // Convert to radians
-      const incR = THREE.MathUtils.degToRad(inc);
-      const aziR = THREE.MathUtils.degToRad(azi);
-
-      // Rotation order: Y (azimuth around vertical), then X (incline)
-      if (rampMesh){
-        rampMesh.rotation.set(0,0,0);
-        rampMesh.rotation.y = aziR;
-        rampMesh.rotation.x = -incR; // negative to tilt "down" away from camera by default
-      }
-
-      // Normal vector of ramp (start from +Y, then rotate with same euler)
-      const normal = new THREE.Vector3(0,1,0);
-      normal.applyEuler(new THREE.Euler(-incR, aziR, 0, 'XYZ'));
-      badge.textContent = `normal: (${normal.x.toFixed(2)}, ${normal.y.toFixed(2)}, ${normal.z.toFixed(2)})`;
-    }
-
-    function updateThickness(){
-      const tVal = parseFloat(thickness.value);
-      thickV.textContent = tVal.toFixed(2);
-      makeRamp(parseFloat(size.value), tVal);
-      updateRamp();
-    }
-    function updateSize(){
-      const sVal = parseFloat(size.value);
-      sizeV.textContent = sVal.toFixed(1);
-      makeRamp(sVal, parseFloat(thickness.value));
-      updateRamp();
-    }
-
-    incline.addEventListener('input', ()=>{ if (snap1.checked||snap5.checked) incline.value = snapValue(parseFloat(incline.value)); updateRamp(); });
-    azimuth.addEventListener('input', ()=>{ if (snap1.checked||snap5.checked) azimuth.value = snapValue(parseFloat(azimuth.value)); updateRamp(); });
-    thickness.addEventListener('input', updateThickness);
-    size.addEventListener('input', updateSize);
-
-    speed.addEventListener('input', ()=>{
-      speedMul = parseFloat(speed.value);
-      speedV.textContent = speedMul.toFixed(1);
-    });
-
-    pauseBtn.addEventListener('click', ()=>{
-      paused = !paused;
-      pauseBtn.textContent = paused ? 'Play' : 'Pause';
-    });
-
-    resetBtn.addEventListener('click', ()=>{
-      incline.value = 20; azimuth.value = 45; thickness.value = 0.06; size.value = 3.5; speed.value = 1.2;
-      inclV.textContent = '20.0'; azimV.textContent = '45.0'; thickV.textContent = '0.06'; sizeV.textContent = '3.5'; speedV.textContent = '1.2';
-      updateSize();
-      speedMul = 1.2;
-      dirSign = 1; t = 0;
-    });
-
-    // Color pickers
-    bgColor.addEventListener('input', ()=>{ scene.background = new THREE.Color(bgColor.value); });
-    rampColor.addEventListener('input', ()=>{ rampMat.color.set(rampColor.value); });
-    personColor.addEventListener('input', ()=>{
-      person.traverse(o=>{ if(o.isMesh) o.material.color = new THREE.Color(personColor.value); });
-    });
-
-    // first render
-    updateRamp();
-
-    // ----- Render loop -----
-    let last = performance.now();
-    function onResize(){
-      camera.aspect = innerWidth/innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    }
-    addEventListener('resize', onResize);
-
-    (function animate(now=performance.now()){
-      requestAnimationFrame(animate);
-      const dt = Math.min(0.033, (now - last) / 1000); // cap delta
-      last = now;
-
-      if (!paused) {
-        t += dt;
-        updateWalker(dt);
-      }
-
-      controls.update();
-      renderer.render(scene, camera);
-    })();
-  </script>
+</script>
 </body>
 </html>
