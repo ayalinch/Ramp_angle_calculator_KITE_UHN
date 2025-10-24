@@ -1,160 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Ramp Angle Sandbox — KITE UHN</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KITE Ramp Angle Sandbox</title>
+
 <style>
-  html,body { margin:0; height:100%; background:#f7f9fc; font-family: -apple-system, system-ui, sans-serif; }
+  html,body { margin:0; height:100%; background:#f7f9fc; font-family:-apple-system,system-ui,sans-serif; }
   canvas { display:block; }
 
   .panel {
-    position:fixed; top:14px; left:14px; padding:14px 16px;
-    background:rgba(255,255,255,0.85); backdrop-filter: blur(12px);
-    border-radius:14px; border:1px solid #d8dee9; box-shadow:0 8px 30px rgba(0,0,0,.12);
-    max-width:350px;
+    position:fixed; top:14px; left:14px; padding:16px;
+    background:rgba(255,255,255,0.9); backdrop-filter:blur(12px);
+    border:1px solid #d9dee6; border-radius:12px;
+    box-shadow:0 8px 28px rgba(0,0,0,0.12);
+    max-width:330px;
   }
 
-  .panel h1 { font-size:16px; margin:0 0 8px; font-weight:700; color:#1a1a1a; }
+  .panel h1 { font-size:16px; margin:0 0 12px; font-weight:700; color:#222; }
 
-  .row { display:flex; align-items:center; margin:7px 0; }
-  .row label { width:100px; font-size:13px; color:#222; }
+  .row { display:flex; align-items:center; margin:8px 0; }
+  .row label { width:100px; font-size:13px; color:#444; }
   .row input[type="range"] { flex:1; }
-  .val { width:50px; text-align:right; font-size:13px; color:#444; }
+  .val { width:48px; text-align:right; font-size:13px; color:#333; }
+
+  .preset-buttons { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .preset-btn {
+    padding:4px 8px; border-radius:6px; border:1px solid #ccc;
+    background:#fff; font-size:13px; cursor:pointer; color:#333; font-weight:600;
+  }
+  .preset-btn:hover { background:#f0f0f0; }
 
   .btn {
-    margin-top:6px; padding:6px 10px; font-size:12px; border-radius:8px;
-    border:1px solid #ccc; background:#fff; cursor:pointer; font-weight:600; color:#333;
+    margin-top:10px; padding:6px 10px; border-radius:8px; border:1px solid #ccc;
+    background:#fff; cursor:pointer; font-size:13px; font-weight:600; color:#333;
   }
-  .btn:hover { background:#f0f0f0; }
+  .btn:hover { background:#eee; }
 </style>
 </head>
+
 <body>
 
 <div class="panel">
-  <h1>Ramp Angle Sandbox</h1>
+  <h1>Ramp Angle Sandbox (KITE – UHN)</h1>
 
   <div class="row">
-    <label>Incline</label><input id="incline" type="range" min="0" max="45" step="0.1" value="12">
+    <label>Incline</label>
+    <input id="incl" type="range" min="0" max="45" step="0.1" value="12">
     <div class="val" id="inclVal">12°</div>
   </div>
 
   <div class="row">
-    <label>Azimuth</label><input id="azimuth" type="range" min="0" max="360" step="0.1" value="45">
+    <label>Azimuth</label>
+    <input id="azi" type="range" min="0" max="360" step="0.1" value="45">
     <div class="val" id="aziVal">45°</div>
   </div>
 
   <div class="row">
-    <label>Ramp Size</label><input id="size" type="range" min="1" max="6" step="0.1" value="3.5">
+    <label>Ramp Size</label>
+    <input id="size" type="range" min="1" max="6" step="0.1" value="3.5">
     <div class="val" id="sizeVal">3.5m</div>
   </div>
 
   <div class="row">
-    <label>Walk Speed</label><input id="speed" type="range" min="0.3" max="3" step="0.1" value="1.2">
+    <label>Walk Speed</label>
+    <input id="speed" type="range" min="0.3" max="3" step="0.1" value="1.2">
     <div class="val" id="speedVal">1.2×</div>
   </div>
 
-  <button class="btn" id="resetBtn">Reset</button>
   <button class="btn" id="pauseBtn">Pause</button>
+  <button class="btn" id="resetBtn">Reset</button>
+
+  <div style="margin-top:14px; font-size:13px; font-weight:600; color:#333;">KITE Angle Presets:</div>
+  <div class="preset-buttons">
+    <button class="preset-btn" data-angle="7">7°</button>
+    <button class="preset-btn" data-angle="10">10°</button>
+    <button class="preset-btn" data-angle="13">13°</button>
+    <button class="preset-btn" data-angle="15">15°</button>
+    <button class="preset-btn" data-angle="17">17°</button>
+  </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+<!-- Libraries (version-matched, compatible) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-/* SCENE */
+/* === SCENE SETUP === */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#f7f9fc");
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setPixelRatio(devicePixelRatio);
+renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,100);
 camera.position.set(6,4,6);
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
+const controls = new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping = true;
 
-/* LIGHTING — Bright Lab */
-scene.add(new THREE.HemisphereLight(0xffffff, 0xdedede, 1.0));
-const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+/* Light */
+scene.add(new THREE.HemisphereLight(0xffffff,0xdedede,1.0));
+const dir = new THREE.DirectionalLight(0xffffff,1.0);
 dir.position.set(4,8,4);
 scene.add(dir);
 
-/* FLOOR */
+/* Floor */
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(50,50),
-  new THREE.MeshStandardMaterial({ color:"#ffffff" })
+  new THREE.MeshStandardMaterial({color:"#ffffff"})
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-/* RAMP */
+/* Ramp */
 let ramp;
 function buildRamp(size=3.5){
   if(ramp) scene.remove(ramp);
-  const geo = new THREE.BoxGeometry(size,0.06,size*1.2);
-  const mat = new THREE.MeshStandardMaterial({ color:"#c7d7ea" });
-  ramp = new THREE.Mesh(geo,mat);
+  ramp = new THREE.Mesh(
+    new THREE.BoxGeometry(size,0.06,size*1.2),
+    new THREE.MeshStandardMaterial({color:"#c7d7ea"})
+  );
   ramp.position.y = 0.5;
   scene.add(ramp);
 }
 buildRamp();
 
-/* PERSON — simple stylized walker */
-const person = new THREE.Mesh(
-  new THREE.CapsuleGeometry(0.12,0.6,6,12),
-  new THREE.MeshStandardMaterial({ color:"#e89c3c" })
-);
-person.position.set(0,1,0);
-scene.add(person);
+/* === HUMAN MODEL (Rigged, Walk Animation) === */
+let mixer, model, walkAction;
+const loader = new THREE.GLTFLoader();
 
-/* UI STATE */
-let t = 0, dirSign = 1, paused = false;
+// Soldier model with walk cycle animations:
+loader.load("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Soldier/glTF/Soldier.gltf", gltf => {
+  model = gltf.scene;
+  model.scale.set(1.2,1.2,1.2);
+  scene.add(model);
 
-function update(){
-  const inc = +incline.value;
-  const azi = +azimuth.value;
-  const sizeVal = +size.value;
-  const sp = +speed.value;
-  inclVal.textContent = inc+"°";
-  aziVal.textContent = azi+"°";
-  sizeVal.textContent = sizeVal.toFixed(1)+"m";
-  speedVal.textContent = sp.toFixed(1)+"×";
+  mixer = new THREE.AnimationMixer(model);
+  walkAction = mixer.clipAction(gltf.animations.find(a=>a.name.includes("Walk") || a.name.includes("walk")));
+  walkAction.play();
 
-  buildRamp(sizeVal);
-  ramp.rotation.set(
-    -THREE.MathUtils.degToRad(inc),
-    THREE.MathUtils.degToRad(azi),
-    0
-  );
+}, undefined, console.error);
 
-  if(!paused){
-    t += 0.02 * sp * dirSign;
-    if(Math.abs(t) > (sizeVal*0.6)) dirSign *= -1;
-  }
-  const z = t;
-  const pos = new THREE.Vector3(0,0.53,z);
-  ramp.localToWorld(pos);
-  person.position.copy(pos);
+/* === UI & Motion === */
+const incl = document.getElementById("incl");
+const azi = document.getElementById("azi");
+const size = document.getElementById("size");
+const speed = document.getElementById("speed");
 
-  requestAnimationFrame(update);
+const inclVal = document.getElementById("inclVal");
+const aziVal = document.getElementById("aziVal");
+const sizeVal = document.getElementById("sizeVal");
+const speedVal = document.getElementById("speedVal");
+
+let t=0, dirSign=1, paused=false;
+
+function updateUI(){
+  inclVal.textContent = incl.value+"°";
+  aziVal.textContent  = azi.value+"°";
+  sizeVal.textContent = parseFloat(size.value).toFixed(1)+"m";
+  speedVal.textContent = parseFloat(speed.value).toFixed(1)+"×";
+}
+
+function applyRampTransform(){
+  const incR = THREE.MathUtils.degToRad(parseFloat(incl.value));
+  const aziR = THREE.MathUtils.degToRad(parseFloat(azi.value));
+  ramp.rotation.set(-incR,aziR,0);
+}
+
+function animateWalker(dt){
+  if(!model || !ramp) return;
+
+  const s = parseFloat(size.value);
+  const sp = parseFloat(speed.value);
+
+  t += dt * sp * dirSign;
+  const limit = s*0.6;
+  if(Math.abs(t)>limit) dirSign *= -1;
+
+  const posLocal = new THREE.Vector3(0,0.53,t);
+  ramp.localToWorld(posLocal);
+  model.position.copy(posLocal);
+
+  const incR = THREE.MathUtils.degToRad(parseFloat(incl.value));
+  const aziR = THREE.MathUtils.degToRad(parseFloat(azi.value));
+  const euler = new THREE.Euler(-incR,aziR,0,'XYZ');
+  model.rotation.setFromEuler(euler);
+}
+
+document.querySelectorAll(".preset-btn").forEach(btn=>{
+  btn.onclick = ()=>{ incl.value = btn.dataset.angle; updateUI(); applyRampTransform(); };
+});
+
+document.getElementById("pauseBtn").onclick=()=>{ paused=!paused; };
+document.getElementById("resetBtn").onclick=()=>{
+  incl.value=12; azi.value=45; size.value=3.5; speed.value=1.2;
+  updateUI(); buildRamp(parseFloat(size.value)); applyRampTransform();
+};
+
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.033, renderer.info.render.frame?now-renderer.info.render.frame:0)/1000;
+  renderer.info.render.frame = now;
+
+  if(!paused && mixer) mixer.update(dt);
+  if(!paused) animateWalker(dt);
+
   controls.update();
   renderer.render(scene,camera);
 }
-update();
+updateUI(); applyRampTransform(); loop();
 
-resetBtn.onclick = ()=>{
-  incline.value=12;
-  azimuth.value=45;
-  size.value=3.5;
-  speed.value=1.2;
+onresize = ()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
 };
-pauseBtn.onclick = ()=> paused=!paused;
-onresize = ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); };
-
 </script>
 </body>
 </html>
