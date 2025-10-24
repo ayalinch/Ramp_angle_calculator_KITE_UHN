@@ -1,61 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>KITE Ramp Simulator (Safe Build)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta charset="UTF-8" />
+<title>KITE Ramp Simulator (Safe Build r140)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
-  body { margin: 0; background: #111827; font-family: system-ui; color: white; overflow: hidden; }
+  :root { color-scheme: dark; }
+  body { margin:0; background:#111827; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#fff; overflow:hidden; }
   #ui {
-    position: fixed; top: 1rem; left: 1rem;
-    background: #1f2937; padding: 1rem; border-radius: 12px;
-    width: 240px; font-size: 14px; z-index: 10;
+    position: fixed; top: 14px; left: 14px; z-index: 10;
+    background: #1f2937; border: 1px solid #2b3648; border-radius: 12px; padding: 12px 14px; width: 260px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    font-size: 14px;
   }
-  input[type=range] { width: 100%; }
+  #ui h1 { margin:0 0 8px; font-size:15px; }
+  #ui .row { margin:8px 0; }
+  #ui input[type="range"] { width:100%; }
+  #status { position: fixed; top: 14px; right: 14px; padding:6px 10px; background:#0e3b1d; border:1px solid #1c5c33; border-radius:10px; font-size:12px; color:#c7ffd9; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
 
-<!-- ✅ Control Panel -->
+<!-- UI -->
 <div id="ui">
-  <b>Ramp Angle Sandbox</b><br><br>
-  Incline: <span id="incVal">15°</span><br>
-  <input type="range" id="inc" min="0" max="35" step="1" value="15">
+  <h1>Ramp Angle Sandbox</h1>
+  <div class="row">Incline: <b><span id="incVal">15°</span></b></div>
+  <input id="inc" type="range" min="0" max="35" step="1" value="15" />
+  <div class="row" style="margin-top:10px; opacity:.8">Drag to orbit • Wheel to zoom • Right-drag to pan</div>
 </div>
+<div id="status">Loaded r140 ✅</div>
 
-<!-- ✅ Load Three.js r140 (Safe Version) -->
+<!-- ✅ Load Three.js r140 (global builds — no modules) BEFORE your code -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r140/three.min.js"></script>
-
-<!-- ✅ Orbit Controls (Same Version) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r140/examples/js/controls/OrbitControls.js"></script>
 
+<!-- Your scene code -->
 <script>
 /* ---------- SCENE ---------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#111827");
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
 camera.position.set(4, 3, 6);
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
 /* ---------- CONTROLS ---------- */
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0.7, 0);
 
-/* ---------- LIGHT ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-const light = new THREE.DirectionalLight(0xffffff, 1.4);
-light.position.set(3, 5, 4);
-scene.add(light);
+/* ---------- LIGHTING ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+dir.position.set(4, 6, 4);
+dir.castShadow = false;
+scene.add(dir);
 
 /* ---------- FLOOR ---------- */
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({color:"#1f2937", side: THREE.DoubleSide})
+  new THREE.MeshStandardMaterial({ color:"#1f2937", side: THREE.DoubleSide })
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
@@ -63,47 +73,50 @@ scene.add(floor);
 /* ---------- RAMP ---------- */
 const ramp = new THREE.Mesh(
   new THREE.BoxGeometry(4, 0.15, 1.5),
-  new THREE.MeshStandardMaterial({color:"#B91C1C"})
+  new THREE.MeshStandardMaterial({ color:"#B91C1C" }) // red
 );
 ramp.position.y = 0.5;
 scene.add(ramp);
 
-/* ---------- PERSON CAPSUlE ---------- */
+/* ---------- PERSON (capsule placeholder) ---------- */
 const person = new THREE.Mesh(
-  new THREE.CapsuleGeometry(0.2, 0.9, 4, 16),
-  new THREE.MeshStandardMaterial({color:"#FACC15"}) // yellow
+  new THREE.CapsuleGeometry(0.2, 0.9, 6, 16),
+  new THREE.MeshStandardMaterial({ color:"#FACC15" }) // yellow
 );
 person.position.set(0, 1.2, 0);
 scene.add(person);
 
-/* ---------- ANGLE SLIDER ---------- */
-const slider = document.getElementById("inc");
-const incVal = document.getElementById("incVal");
-slider.oninput = () => {
-  const deg = Number(slider.value);
+/* ---------- UI: Incline ---------- */
+const slider = document.getElementById('inc');
+const incVal = document.getElementById('incVal');
+function setIncline(deg){
   incVal.textContent = deg + "°";
+  // Rotate around Z so it tilts visibly
   ramp.rotation.z = THREE.MathUtils.degToRad(deg);
-};
-slider.oninput();
+}
+slider.addEventListener('input', () => setIncline(Number(slider.value)));
+setIncline(Number(slider.value));
 
-/* ---------- ANIMATION ---------- */
+/* ---------- Animate ---------- */
 let t = 0;
 function animate(){
   requestAnimationFrame(animate);
   controls.update();
+
+  // Simple “walking” sway so something obviously moves
   t += 0.03;
-  person.position.z = Math.sin(t) * 0.4; // gentle side step motion
+  person.position.z = Math.sin(t) * 0.45;
+
   renderer.render(scene, camera);
 }
 animate();
 
-/* ---------- RESIZE ---------- */
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
+/* ---------- Resize ---------- */
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
 });
 </script>
-
 </body>
 </html>
