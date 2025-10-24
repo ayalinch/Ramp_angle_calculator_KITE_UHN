@@ -2,122 +2,140 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>KITE Ramp Simulator — r146 Stable Build</title>
+<title>KITE Ramp Simulator (Safe Build r140)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
 <style>
-  body { margin:0; overflow:hidden; background:#111827; font-family:-apple-system, sans-serif; }
-  #ui {
-    position:fixed; top:20px; left:20px; z-index:10;
-    background:rgba(255,255,255,0.08); padding:14px 18px;
-    border-radius:12px; backdrop-filter:blur(10px);
-    color:white; font-size:14px; width:220px;
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: #111827;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    color: #fff;
+    overflow: hidden;
   }
-  label { display:block; margin-top:8px; font-weight:600; }
-  input[type=range], input[type=color] { width:100%; margin-top:4px; }
+
+  /* ✅ Canvas must fill visible area */
+  canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    z-index: 1;
+  }
+
+  #ui {
+    position: fixed; top: 14px; left: 14px; z-index: 10;
+    background: #1f2937; border: 1px solid #2b3648; border-radius: 12px;
+    padding: 12px 14px; width: 260px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.25);
+    font-size: 14px;
+  }
+  #ui h1 { margin: 0 0 8px; font-size: 15px; }
+  #ui input[type="range"] { width: 100%; }
+  #status {
+    position: fixed; top: 14px; right: 14px; z-index: 10;
+    padding: 6px 10px; background: #0e3b1d; border:1px solid #1c5c33; border-radius: 10px;
+    font-size: 12px; color: #c7ffd9;
+  }
 </style>
-
-<!-- ✅ CORRECT, MATCHING, WORKING VERSIONS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r146/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r146/examples/js/controls/OrbitControls.js"></script>
-
 </head>
 <body>
 
 <div id="ui">
-  <label>Ramp Angle</label>
-  <input id="angle" type="range" min="0" max="25" value="7"/>
-
-  <label>Walk Speed</label>
-  <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1.2"/>
-
-  <label>Person Color</label>
-  <input id="personColor" type="color" value="#ffffff"/>
-
-  <label>Ramp Color</label>
-  <input id="rampColor" type="color" value="#818181"/>
+  <h1>Ramp Angle Sandbox</h1>
+  Incline: <b><span id="incVal">15°</span></b>
+  <input id="inc" type="range" min="0" max="35" step="1" value="15" />
+  <div style="margin-top:10px; opacity:.8">
+    Drag to orbit • Wheel to zoom • Right-drag to pan
+  </div>
 </div>
 
+<div id="status">Loaded r140 ✅</div>
+
+<!-- ✅ USE THESE — they work in Safari, GitHub Pages, and do not get blocked -->
+<script src="https://unpkg.com/three@0.140.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.140.0/examples/js/controls/OrbitControls.js"></script>
+
 <script>
-let scene = new THREE.Scene();
+/* ---------- SCENE ---------- */
+const scene = new THREE.Scene();
 scene.background = new THREE.Color("#111827");
 
-let camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(5,3,6);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(4, 3, 6);
 
-let renderer = new THREE.WebGLRenderer({antialias:true});
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-let controls = new THREE.OrbitControls(camera, renderer.domElement);
+/* ---------- CONTROLS ---------- */
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0.7, 0);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-let dl = new THREE.DirectionalLight(0xffffff, 1.2);
-dl.position.set(5,10,5);
-scene.add(dl);
+/* ---------- LIGHT ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+dir.position.set(4, 6, 4);
+scene.add(dir);
 
-// Ramp
-let ramp = new THREE.Mesh(
-  new THREE.BoxGeometry(6,0.15,2),
-  new THREE.MeshStandardMaterial({color:"#818181"})
+/* ---------- FLOOR ---------- */
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshStandardMaterial({ color:"#1f2937", side: THREE.DoubleSide })
 );
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+/* ---------- RAMP ---------- */
+const ramp = new THREE.Mesh(
+  new THREE.BoxGeometry(4, 0.15, 1.5),
+  new THREE.MeshStandardMaterial({ color:"#B91C1C" }) // Red
+);
+ramp.position.y = 0.5;
 scene.add(ramp);
 
-// Simple mannequin (procedural boxes)
-function part(w,h,d,y){
-  let m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:"#ffffff"}));
-  m.position.y=y; return m;
-}
-let body = part(0.8,1.4,0.5,1.2);
-let legL = part(0.3,1.4,0.3,0.3); legL.position.x=-0.3;
-let legR = part(0.3,1.4,0.3,0.3); legR.position.x=0.3;
-let armL = part(0.25,1.2,0.25,1.4); armL.position.x=-0.8;
-let armR = part(0.25,1.2,0.25,1.4); armR.position.x=0.8;
-let head = part(0.6,0.6,0.6,2.1);
-
-let person = new THREE.Group();
-person.add(body,legL,legR,armL,armR,head);
+/* ---------- PERSON (temp placeholder) ---------- */
+const person = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.2, 0.9, 6, 16),
+  new THREE.MeshStandardMaterial({ color:"#FACC15" }) // Yellow
+);
+person.position.set(0, 1.2, 0);
 scene.add(person);
-person.position.set(0,1.1,0);
 
-// Animation
-let step=0, direction=1, speed=1.2;
+/* ---------- UI SLIDER ---------- */
+const slider = document.getElementById("inc");
+const incVal = document.getElementById("incVal");
+
+function setIncline(deg){
+  incVal.textContent = deg + "°";
+  ramp.rotation.z = THREE.MathUtils.degToRad(deg);
+}
+slider.addEventListener("input", () => setIncline(Number(slider.value)));
+setIncline(Number(slider.value));
+
+/* ---------- ANIMATE ---------- */
+let t = 0;
 function animate(){
   requestAnimationFrame(animate);
   controls.update();
-  step+=0.05*speed;
-
-  legL.rotation.x = Math.sin(step)*0.7;
-  legR.rotation.x = -Math.sin(step)*0.7;
-  armL.rotation.x = -Math.sin(step)*0.5;
-  armR.rotation.x = Math.sin(step)*0.5;
-
-  person.position.z += direction * 0.015 * speed;
-  if(person.position.z>0.9 || person.position.z<-0.9){
-    direction*=-1;
-    person.rotation.y += Math.PI;
-  }
-
-  renderer.render(scene,camera);
+  t += 0.03;
+  person.position.z = Math.sin(t) * 0.45;
+  renderer.render(scene, camera);
 }
 animate();
 
-// UI bindings
-document.getElementById("angle").oninput=e=>{
-  ramp.rotation.z = -THREE.MathUtils.degToRad(e.target.value);
-};
-document.getElementById("speed").oninput=e=>{ speed=+e.target.value };
-document.getElementById("personColor").oninput=e=>{
-  person.traverse(o=>{ if(o.isMesh) o.material.color.set(e.target.value) });
-};
-document.getElementById("rampColor").oninput=e=>{
-  ramp.material.color.set(e.target.value);
-};
-
-onresize=()=>{
-  camera.aspect=innerWidth/innerHeight;
+/* ---------- RESIZE ---------- */
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
-};
+  renderer.setSize(innerWidth, innerHeight);
+});
 </script>
+
 </body>
 </html>
