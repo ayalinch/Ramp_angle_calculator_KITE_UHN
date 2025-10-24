@@ -1,224 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KITE Ramp Angle Sandbox</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ramp Angle Sandbox</title>
+
+<!-- ✅ Three.js (Global build — works everywhere including GitHub Pages + Safari) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
+
+<!-- ✅ OrbitControls (must match r150 + non-module version) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/examples/js/controls/OrbitControls.js"></script>
 
 <style>
-  html,body { margin:0; height:100%; background:#f7f9fc; font-family:-apple-system,system-ui,sans-serif; }
-  canvas { display:block; }
-
-  .panel {
-    position:fixed; top:14px; left:14px; padding:16px;
-    background:rgba(255,255,255,0.9); backdrop-filter:blur(12px);
-    border:1px solid #d9dee6; border-radius:12px;
-    box-shadow:0 8px 28px rgba(0,0,0,0.12);
-    max-width:330px;
+  body {
+    margin: 0;
+    background: #111827;
+    font-family: system-ui, sans-serif;
+    color: white;
   }
-
-  .panel h1 { font-size:16px; margin:0 0 12px; font-weight:700; color:#222; }
-
-  .row { display:flex; align-items:center; margin:8px 0; }
-  .row label { width:100px; font-size:13px; color:#444; }
-  .row input[type="range"] { flex:1; }
-  .val { width:48px; text-align:right; font-size:13px; color:#333; }
-
-  .preset-buttons { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-  .preset-btn {
-    padding:4px 8px; border-radius:6px; border:1px solid #ccc;
-    background:#fff; font-size:13px; cursor:pointer; color:#333; font-weight:600;
+  #ui {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    background: #1f2937;
+    padding: 1rem;
+    border-radius: 12px;
+    width: 260px;
+    font-size: 14px;
   }
-  .preset-btn:hover { background:#f0f0f0; }
-
-  .btn {
-    margin-top:10px; padding:6px 10px; border-radius:8px; border:1px solid #ccc;
-    background:#fff; cursor:pointer; font-size:13px; font-weight:600; color:#333;
-  }
-  .btn:hover { background:#eee; }
+  input[type=range] { width: 100%; }
 </style>
 </head>
 
 <body>
 
-<div class="panel">
-  <h1>Ramp Angle Sandbox (KITE – UHN)</h1>
-
-  <div class="row">
-    <label>Incline</label>
-    <input id="incl" type="range" min="0" max="45" step="0.1" value="12">
-    <div class="val" id="inclVal">12°</div>
-  </div>
-
-  <div class="row">
-    <label>Azimuth</label>
-    <input id="azi" type="range" min="0" max="360" step="0.1" value="45">
-    <div class="val" id="aziVal">45°</div>
-  </div>
-
-  <div class="row">
-    <label>Ramp Size</label>
-    <input id="size" type="range" min="1" max="6" step="0.1" value="3.5">
-    <div class="val" id="sizeVal">3.5m</div>
-  </div>
-
-  <div class="row">
-    <label>Walk Speed</label>
-    <input id="speed" type="range" min="0.3" max="3" step="0.1" value="1.2">
-    <div class="val" id="speedVal">1.2×</div>
-  </div>
-
-  <button class="btn" id="pauseBtn">Pause</button>
-  <button class="btn" id="resetBtn">Reset</button>
-
-  <div style="margin-top:14px; font-size:13px; font-weight:600; color:#333;">KITE Angle Presets:</div>
-  <div class="preset-buttons">
-    <button class="preset-btn" data-angle="7">7°</button>
-    <button class="preset-btn" data-angle="10">10°</button>
-    <button class="preset-btn" data-angle="13">13°</button>
-    <button class="preset-btn" data-angle="15">15°</button>
-    <button class="preset-btn" data-angle="17">17°</button>
-  </div>
+<div id="ui">
+  <b>Ramp Angle Sandbox</b><br><br>
+  Incline: <span id="incVal">20°</span><br>
+  <input type="range" id="inc" min="0" max="40" step="1" value="20">
 </div>
 
-<!-- Libraries (version-matched, compatible) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+<canvas id="c"></canvas>
 
 <script>
-/* === SCENE SETUP === */
+/* ---- Scene Setup ---- */
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#f7f9fc");
+scene.background = new THREE.Color("#111827");
 
-const renderer = new THREE.WebGLRenderer({ antialias:true });
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(4, 3, 6);
 
-const camera = new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,100);
-camera.position.set(6,4,6);
-
+/* ---- Controls ---- */
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* Light */
-scene.add(new THREE.HemisphereLight(0xffffff,0xdedede,1.0));
-const dir = new THREE.DirectionalLight(0xffffff,1.0);
-dir.position.set(4,8,4);
-scene.add(dir);
+/* ---- Light ---- */
+const light = new THREE.DirectionalLight(0xffffff, 1.4);
+light.position.set(3,5,4);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
 
-/* Floor */
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(50,50),
-  new THREE.MeshStandardMaterial({color:"#ffffff"})
-);
+/* ---- Ramp ---- */
+const rampGeo = new THREE.BoxGeometry(3.5, 0.08, 1.2);
+const rampMat = new THREE.MeshStandardMaterial({ color: "#8b1d3a" });
+const ramp = new THREE.Mesh(rampGeo, rampMat);
+ramp.position.y = 0.5;
+scene.add(ramp);
+
+/* ---- Simple Person Capsule ---- */
+const pGeo = new THREE.CapsuleGeometry(0.2, 0.8, 4, 16);
+const pMat = new THREE.MeshStandardMaterial({ color: "#facc15" });
+const person = new THREE.Mesh(pGeo, pMat);
+person.position.set(0, 1, 0);
+scene.add(person);
+
+/* ---- Floor ---- */
+const floorGeo = new THREE.PlaneGeometry(30, 30);
+const floorMat = new THREE.MeshStandardMaterial({ color: "#1f2937", side: THREE.DoubleSide });
+const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-/* Ramp */
-let ramp;
-function buildRamp(size=3.5){
-  if(ramp) scene.remove(ramp);
-  ramp = new THREE.Mesh(
-    new THREE.BoxGeometry(size,0.06,size*1.2),
-    new THREE.MeshStandardMaterial({color:"#c7d7ea"})
-  );
-  ramp.position.y = 0.5;
-  scene.add(ramp);
-}
-buildRamp();
+/* ---- Ramp Angle Control ---- */
+const incSlider = document.getElementById("inc");
+const incVal = document.getElementById("incVal");
 
-/* === HUMAN MODEL (Rigged, Walk Animation) === */
-let mixer, model, walkAction;
-const loader = new THREE.GLTFLoader();
-
-// Soldier model with walk cycle animations:
-loader.load("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Soldier/glTF/Soldier.gltf", gltf => {
-  model = gltf.scene;
-  model.scale.set(1.2,1.2,1.2);
-  scene.add(model);
-
-  mixer = new THREE.AnimationMixer(model);
-  walkAction = mixer.clipAction(gltf.animations.find(a=>a.name.includes("Walk") || a.name.includes("walk")));
-  walkAction.play();
-
-}, undefined, console.error);
-
-/* === UI & Motion === */
-const incl = document.getElementById("incl");
-const azi = document.getElementById("azi");
-const size = document.getElementById("size");
-const speed = document.getElementById("speed");
-
-const inclVal = document.getElementById("inclVal");
-const aziVal = document.getElementById("aziVal");
-const sizeVal = document.getElementById("sizeVal");
-const speedVal = document.getElementById("speedVal");
-
-let t=0, dirSign=1, paused=false;
-
-function updateUI(){
-  inclVal.textContent = incl.value+"°";
-  aziVal.textContent  = azi.value+"°";
-  sizeVal.textContent = parseFloat(size.value).toFixed(1)+"m";
-  speedVal.textContent = parseFloat(speed.value).toFixed(1)+"×";
-}
-
-function applyRampTransform(){
-  const incR = THREE.MathUtils.degToRad(parseFloat(incl.value));
-  const aziR = THREE.MathUtils.degToRad(parseFloat(azi.value));
-  ramp.rotation.set(-incR,aziR,0);
-}
-
-function animateWalker(dt){
-  if(!model || !ramp) return;
-
-  const s = parseFloat(size.value);
-  const sp = parseFloat(speed.value);
-
-  t += dt * sp * dirSign;
-  const limit = s*0.6;
-  if(Math.abs(t)>limit) dirSign *= -1;
-
-  const posLocal = new THREE.Vector3(0,0.53,t);
-  ramp.localToWorld(posLocal);
-  model.position.copy(posLocal);
-
-  const incR = THREE.MathUtils.degToRad(parseFloat(incl.value));
-  const aziR = THREE.MathUtils.degToRad(parseFloat(azi.value));
-  const euler = new THREE.Euler(-incR,aziR,0,'XYZ');
-  model.rotation.setFromEuler(euler);
-}
-
-document.querySelectorAll(".preset-btn").forEach(btn=>{
-  btn.onclick = ()=>{ incl.value = btn.dataset.angle; updateUI(); applyRampTransform(); };
-});
-
-document.getElementById("pauseBtn").onclick=()=>{ paused=!paused; };
-document.getElementById("resetBtn").onclick=()=>{
-  incl.value=12; azi.value=45; size.value=3.5; speed.value=1.2;
-  updateUI(); buildRamp(parseFloat(size.value)); applyRampTransform();
+incSlider.oninput = ()=> {
+  const deg = Number(incSlider.value);
+  incVal.textContent = deg + "°";
+  ramp.rotation.z = THREE.MathUtils.degToRad(deg);
 };
 
-function loop(now){
-  requestAnimationFrame(loop);
-  const dt = Math.min(0.033, renderer.info.render.frame?now-renderer.info.render.frame:0)/1000;
-  renderer.info.render.frame = now;
+incSlider.oninput();
 
-  if(!paused && mixer) mixer.update(dt);
-  if(!paused) animateWalker(dt);
-
+/* ---- Animation (capsule steps side-to-side) ---- */
+let t = 0;
+function animate(){
+  requestAnimationFrame(animate);
   controls.update();
-  renderer.render(scene,camera);
+  t += 0.03;
+  person.position.z = Math.sin(t) * 0.4;
+  renderer.render(scene, camera);
 }
-updateUI(); applyRampTransform(); loop();
+animate();
 
-onresize = ()=>{
-  renderer.setSize(innerWidth,innerHeight);
-  camera.aspect = innerWidth/innerHeight;
+/* ---- Resize ---- */
+window.onresize = ()=> {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 };
 </script>
+
 </body>
 </html>
