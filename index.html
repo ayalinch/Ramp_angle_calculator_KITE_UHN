@@ -1,99 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>KITE Ramp Angle Simulator</title>
+<meta charset="UTF-8">
+<title>KITE Ramp Simulator (Safe Build)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
   body { margin: 0; background: #111827; font-family: system-ui; color: white; overflow: hidden; }
   #ui {
     position: fixed; top: 1rem; left: 1rem;
     background: #1f2937; padding: 1rem; border-radius: 12px;
-    width: 260px; font-size: 14px; z-index: 10;
+    width: 240px; font-size: 14px; z-index: 10;
   }
   input[type=range] { width: 100%; }
 </style>
 </head>
 <body>
 
-<!-- ✅ UI Panel -->
+<!-- ✅ Control Panel -->
 <div id="ui">
   <b>Ramp Angle Sandbox</b><br><br>
-  Incline: <span id="incVal">20°</span><br>
-  <input type="range" id="inc" min="0" max="40" step="1" value="20">
+  Incline: <span id="incVal">15°</span><br>
+  <input type="range" id="inc" min="0" max="35" step="1" value="15">
 </div>
 
-<canvas id="c"></canvas>
+<!-- ✅ Load Three.js r140 (Safe Version) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r140/three.min.js"></script>
 
-<!-- ✅ Load Three.js FIRST -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js"></script>
+<!-- ✅ Orbit Controls (Same Version) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r140/examples/js/controls/OrbitControls.js"></script>
 
-<!-- ✅ Load OrbitControls NEXT (must match same r150 version) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/examples/js/controls/OrbitControls.js"></script>
-
-<!-- ✅ Now your scene code (AFTER Three.js is loaded) -->
 <script>
-const canvas = document.getElementById("c");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-
+/* ---------- SCENE ---------- */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#111827");
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
 camera.position.set(4, 3, 6);
 
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* ---------- CONTROLS ---------- */
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+/* ---------- LIGHT ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 const light = new THREE.DirectionalLight(0xffffff, 1.4);
 light.position.set(3, 5, 4);
 scene.add(light);
-scene.add(new THREE.AmbientLight(0xffffff, 0.25));
 
-const rampGeo = new THREE.BoxGeometry(3.5, 0.08, 1.2);
-const rampMat = new THREE.MeshStandardMaterial({ color: "#8b1d3a" });
-const ramp = new THREE.Mesh(rampGeo, rampMat);
+/* ---------- FLOOR ---------- */
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshStandardMaterial({color:"#1f2937", side: THREE.DoubleSide})
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+/* ---------- RAMP ---------- */
+const ramp = new THREE.Mesh(
+  new THREE.BoxGeometry(4, 0.15, 1.5),
+  new THREE.MeshStandardMaterial({color:"#B91C1C"})
+);
 ramp.position.y = 0.5;
 scene.add(ramp);
 
-const pGeo = new THREE.CapsuleGeometry(0.2, 0.8, 4, 16);
-const pMat = new THREE.MeshStandardMaterial({ color: "#facc15" });
-const person = new THREE.Mesh(pGeo, pMat);
-person.position.set(0, 1, 0);
+/* ---------- PERSON CAPSUlE ---------- */
+const person = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.2, 0.9, 4, 16),
+  new THREE.MeshStandardMaterial({color:"#FACC15"}) // yellow
+);
+person.position.set(0, 1.2, 0);
 scene.add(person);
 
-const floorGeo = new THREE.PlaneGeometry(30, 30);
-const floorMat = new THREE.MeshStandardMaterial({ color: "#1f2937", side: THREE.DoubleSide });
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-scene.add(floor);
-
-const incSlider = document.getElementById("inc");
+/* ---------- ANGLE SLIDER ---------- */
+const slider = document.getElementById("inc");
 const incVal = document.getElementById("incVal");
-incSlider.oninput = () => {
-  const deg = Number(incSlider.value);
+slider.oninput = () => {
+  const deg = Number(slider.value);
   incVal.textContent = deg + "°";
   ramp.rotation.z = THREE.MathUtils.degToRad(deg);
 };
-incSlider.oninput();
+slider.oninput();
 
+/* ---------- ANIMATION ---------- */
 let t = 0;
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
   controls.update();
   t += 0.03;
-  person.position.z = Math.sin(t) * 0.4;
+  person.position.z = Math.sin(t) * 0.4; // gentle side step motion
   renderer.render(scene, camera);
 }
 animate();
 
-window.onresize = () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+/* ---------- RESIZE ---------- */
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-};
+});
 </script>
 
 </body>
