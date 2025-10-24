@@ -2,42 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>KITE Ramp Simulator (Safe Build r140)</title>
+<title>KITE Ramp Simulator — Realistic Pivot + Rails + Walker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <style>
   :root { color-scheme: dark; }
   body {
     margin: 0;
-    background: #111827;
+    background: #111827; /* neutral lab dark */
     font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     color: #fff;
     overflow: hidden;
   }
-
-  /* ✅ Canvas must fill visible area */
+  /* Fullscreen canvas (critical) */
   canvas {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw;
-    height: 100vh;
-    display: block;
-    z-index: 1;
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh; display: block; z-index: 1;
   }
-
+  /* UI */
   #ui {
     position: fixed; top: 14px; left: 14px; z-index: 10;
     background: #1f2937; border: 1px solid #2b3648; border-radius: 12px;
-    padding: 12px 14px; width: 260px;
+    padding: 12px 14px; width: 280px;
     box-shadow: 0 12px 30px rgba(0,0,0,.25);
     font-size: 14px;
   }
   #ui h1 { margin: 0 0 8px; font-size: 15px; }
+  #ui .row { margin: 8px 0; }
   #ui input[type="range"] { width: 100%; }
+  #ui .hint { opacity:.8; font-size:12px; margin-top:6px; }
   #status {
     position: fixed; top: 14px; right: 14px; z-index: 10;
-    padding: 6px 10px; background: #0e3b1d; border:1px solid #1c5c33; border-radius: 10px;
-    font-size: 12px; color: #c7ffd9;
+    padding: 6px 10px; background:#0e3b1d; border:1px solid #1c5c33; border-radius:10px;
+    font-size:12px; color:#c7ffd9;
   }
 </style>
 </head>
@@ -45,16 +42,22 @@
 
 <div id="ui">
   <h1>Ramp Angle Sandbox</h1>
-  Incline: <b><span id="incVal">15°</span></b>
-  <input id="inc" type="range" min="0" max="35" step="1" value="15" />
-  <div style="margin-top:10px; opacity:.8">
-    Drag to orbit • Wheel to zoom • Right-drag to pan
-  </div>
+  <div class="row">Incline: <b><span id="incVal">12°</span></b></div>
+  <input id="inc" type="range" min="0" max="25" step="0.1" value="12" />
+
+  <div class="row">Ramp Length: <b><span id="lenVal">4.0m</span></b></div>
+  <input id="len" type="range" min="2" max="6" step="0.1" value="4" />
+
+  <div class="row">Walk Speed: <b><span id="spdVal">1.2×</span></b></div>
+  <input id="spd" type="range" min="0.4" max="3" step="0.1" value="1.2" />
+
+  <button id="pauseBtn" style="margin-top:8px;padding:6px 10px;border-radius:8px;border:1px solid #2b3648;background:#111e2c;color:#e5e7eb;cursor:pointer;">Pause</button>
+  <div class="hint">Drag to orbit • Wheel to zoom • Right-drag to pan</div>
 </div>
 
 <div id="status">Loaded r140 ✅</div>
 
-<!-- ✅ USE THESE — they work in Safari, GitHub Pages, and do not get blocked -->
+<!-- ✅ Stable, Safari-safe Three.js (no modules) -->
 <script src="https://unpkg.com/three@0.140.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.140.0/examples/js/controls/OrbitControls.js"></script>
 
@@ -64,9 +67,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color("#111827");
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
-camera.position.set(4, 3, 6);
+camera.position.set(5.5, 3.5, 6.5);
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
+const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -75,62 +78,218 @@ document.body.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.target.set(0, 0.7, 0);
+controls.target.set(0, 0.7, 1.5);
 
-/* ---------- LIGHT ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-const dir = new THREE.DirectionalLight(0xffffff, 1.2);
-dir.position.set(4, 6, 4);
-scene.add(dir);
+/* ---------- LIGHTING ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const key = new THREE.DirectionalLight(0xffffff, 1.15);
+key.position.set(5, 8, 6);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x90a4ae, 0.4);
+fill.position.set(-6, 4, -4);
+scene.add(fill);
 
 /* ---------- FLOOR ---------- */
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({ color:"#1f2937", side: THREE.DoubleSide })
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color:"#0f172a", roughness:0.9, metalness:0.0, side: THREE.DoubleSide })
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-/* ---------- RAMP ---------- */
-const ramp = new THREE.Mesh(
-  new THREE.BoxGeometry(4, 0.15, 1.5),
-  new THREE.MeshStandardMaterial({ color:"#B91C1C" }) // Red
-);
-ramp.position.y = 0.5;
-scene.add(ramp);
+/* ---------- RAMP: realistic hinge pivot ---------- */
+/* We'll build a pivot group at the hinge line (bottom edge).
+   The ramp deck & rails are children; pivot rotates around X to raise far end. */
 
-/* ---------- PERSON (temp placeholder) ---------- */
+const rampPivot = new THREE.Group();
+scene.add(rampPivot);
+
+// defaults
+let rampLen = 4.0;     // meters (scene units)
+let rampWidth = 1.5;
+const rampThick = 0.12;
+
+// Hinge line is at world z = 0 inside pivot space; deck will extend +Z direction
+let deck, sideA_rail, sideB_rail;
+let railPosts = [];
+
+function buildRamp() {
+  // Clear old
+  if (deck) rampPivot.remove(deck);
+  if (sideA_rail) rampPivot.remove(sideA_rail);
+  if (sideB_rail) rampPivot.remove(sideB_rail);
+  railPosts.forEach(p => rampPivot.remove(p));
+  railPosts = [];
+
+  // Deck geometry: box, but positioned so its near edge sits on hinge
+  const deckGeo = new THREE.BoxGeometry(rampWidth, rampThick, rampLen);
+  const deckMat = new THREE.MeshStandardMaterial({ color:"#9CA3AF", roughness:0.8, metalness:0.05 });
+  deck = new THREE.Mesh(deckGeo, deckMat);
+
+  // Move deck so hinge edge is at pivot origin (z=0), resting on floor at y = rampThick/2
+  deck.position.set(0, rampThick/2, rampLen/2);
+  deck.castShadow = false; deck.receiveShadow = true;
+  rampPivot.add(deck);
+
+  // Handrails (two sides)
+  const railHeight = 1.0;
+  const railOffsetX = rampWidth/2 - 0.05; // slightly in from edge
+  const railRadius = 0.02;
+
+  // Top rails (left/right)
+  const railGeo = new THREE.CylinderGeometry(railRadius, railRadius, rampLen, 12);
+  const railMat = new THREE.MeshStandardMaterial({ color:"#E5E7EB", metalness:0.1, roughness:0.5 });
+
+  sideA_rail = new THREE.Mesh(railGeo, railMat);
+  sideB_rail = new THREE.Mesh(railGeo, railMat);
+
+  // Lay rails along Z; THREE cylinders default Y-up, so rotate to Z
+  sideA_rail.rotation.x = Math.PI/2;
+  sideB_rail.rotation.x = Math.PI/2;
+
+  // Position along X and Y above deck
+  sideA_rail.position.set(+railOffsetX, railHeight, rampLen/2);
+  sideB_rail.position.set(-railOffsetX, railHeight, rampLen/2);
+
+  rampPivot.add(sideA_rail);
+  rampPivot.add(sideB_rail);
+
+  // Vertical posts every ~0.8m including near/far ends
+  const postSpacing = 0.8;
+  const postGeo = new THREE.CylinderGeometry(railRadius*0.9, railRadius*0.9, railHeight, 10);
+  const postMat = new THREE.MeshStandardMaterial({ color:"#CBD5E1", metalness:0.05, roughness:0.6 });
+
+  for (let z=0; z<=rampLen+1e-6; z += postSpacing) {
+    // Left post
+    const pL = new THREE.Mesh(postGeo, postMat);
+    pL.position.set(+railOffsetX, railHeight/2, z);
+    rampPivot.add(pL);
+    railPosts.push(pL);
+
+    // Right post
+    const pR = new THREE.Mesh(postGeo, postMat);
+    pR.position.set(-railOffsetX, railHeight/2, z);
+    rampPivot.add(pR);
+    railPosts.push(pR);
+  }
+
+  // Small toe-kick edges on sides (low curbs)
+  const curbH = 0.06, curbW = 0.02;
+  const curbGeo = new THREE.BoxGeometry(curbW, curbH, rampLen);
+  const curbMat = new THREE.MeshStandardMaterial({ color:"#64748B", roughness:0.7 });
+  const curbA = new THREE.Mesh(curbGeo, curbMat);
+  const curbB = new THREE.Mesh(curbGeo, curbMat);
+  curbA.position.set(+railOffsetX, curbH/2 + rampThick/2, rampLen/2);
+  curbB.position.set(-railOffsetX, curbH/2 + rampThick/2, rampLen/2);
+  rampPivot.add(curbA, curbB);
+
+  // Add a flat landing at the hinge (optional visual)
+  // (Just a square pad at z<0)
+  const pad = new THREE.Mesh(
+    new THREE.BoxGeometry(rampWidth+0.4, 0.04, 0.8),
+    new THREE.MeshStandardMaterial({ color:"#334155", roughness:0.9 })
+  );
+  pad.position.set(0, 0.02, -0.4);
+  scene.add(pad);
+}
+buildRamp();
+
+/* ---------- PERSON (simple capsule) that actually walks up/down ---------- */
 const person = new THREE.Mesh(
-  new THREE.CapsuleGeometry(0.2, 0.9, 6, 16),
-  new THREE.MeshStandardMaterial({ color:"#FACC15" }) // Yellow
+  new THREE.CapsuleGeometry(0.20, 0.90, 6, 16),
+  new THREE.MeshStandardMaterial({ color:"#FACC15" }) // yellow
 );
-person.position.set(0, 1.2, 0);
 scene.add(person);
 
-/* ---------- UI SLIDER ---------- */
-const slider = document.getElementById("inc");
-const incVal = document.getElementById("incVal");
+// Helper vectors reused
+const tmpForward = new THREE.Vector3(0,0,1);
+const tmpUp = new THREE.Vector3(0,1,0);
+const worldForward = new THREE.Vector3();
+const worldUp = new THREE.Vector3();
+const basePoint = new THREE.Vector3();
+const aheadPoint = new THREE.Vector3();
 
-function setIncline(deg){
-  incVal.textContent = deg + "°";
-  ramp.rotation.z = THREE.MathUtils.degToRad(deg);
+/* ---------- UI ---------- */
+const inc = document.getElementById('inc');
+const len = document.getElementById('len');
+const spd = document.getElementById('spd');
+const incVal = document.getElementById('incVal');
+const lenVal = document.getElementById('lenVal');
+const spdVal = document.getElementById('spdVal');
+const pauseBtn = document.getElementById('pauseBtn');
+
+function applyIncline() {
+  const deg = Number(inc.value);
+  incVal.textContent = deg.toFixed(1) + "°";
+  // Rotate around X so far end rises; hinge stays at z=0 line
+  rampPivot.rotation.x = THREE.MathUtils.degToRad(-deg);
 }
-slider.addEventListener("input", () => setIncline(Number(slider.value)));
-setIncline(Number(slider.value));
+function applyLength() {
+  rampLen = Number(len.value);
+  lenVal.textContent = rampLen.toFixed(1) + "m";
+  buildRamp();
+}
+function applySpeed() {
+  const s = Number(spd.value);
+  spdVal.textContent = s.toFixed(1) + "×";
+}
 
-/* ---------- ANIMATE ---------- */
-let t = 0;
-function animate(){
+inc.addEventListener('input', applyIncline);
+len.addEventListener('input', applyLength);
+spd.addEventListener('input', applySpeed);
+applyIncline(); applyLength(); applySpeed();
+
+let paused = false;
+pauseBtn.onclick = () => { paused = !paused; pauseBtn.textContent = paused ? "Resume" : "Pause"; };
+
+/* ---------- Walker animation along the ramp surface ---------- */
+let t = 0;        // param 0..1 along ramp length
+let dir = 1;      // direction (up or down)
+const walkerClearance = 0.55; // height above deck along deck normal
+const stepBobAmp = 0.05;      // vertical bob amplitude (visual)
+function moveWalker(dt) {
+  // Update param along [0, rampLen]
+  const speed = Number(spd.value) * 0.6; // tune speed
+  t += dt * speed * dir;
+  if (t > rampLen) { t = rampLen; dir = -1; }
+  if (t < 0)       { t = 0;       dir =  1; }
+
+  // Deck local basis:
+  // - Forward along +Z in pivot local space
+  // - Up is +Y, but rotated by rampPivot quaternion gives deck normal in world space
+  worldUp.copy(tmpUp).applyQuaternion(rampPivot.quaternion).normalize();
+  worldForward.copy(tmpForward).applyQuaternion(rampPivot.quaternion).normalize();
+
+  // Base point on deck (hinge line is z=0; deck center is at z=rampLen/2 offset inside 'deck')
+  basePoint.set(0, rampThick/2, t);           // local to rampPivot (on deck surface)
+  rampPivot.localToWorld(basePoint);
+
+  // Keep walker slightly above deck along deck normal + add small step bob
+  const bob = Math.sin(t * 6.0) * stepBobAmp; // fake gait bob vs distance, not time
+  const pos = basePoint.clone().addScaledVector(worldUp, walkerClearance + bob);
+  person.position.copy(pos);
+
+  // Orient walker to face along travel direction on the deck
+  aheadPoint.copy(basePoint).addScaledVector(worldForward, Math.sign(dir) * 0.3);
+  person.lookAt(aheadPoint.clone().addScaledVector(worldUp, walkerClearance)); // keep head up relative to deck
+}
+
+/* ---------- Animate ---------- */
+let last = performance.now();
+function animate(now=performance.now()){
   requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  if (!paused) moveWalker(dt);
+
   controls.update();
-  t += 0.03;
-  person.position.z = Math.sin(t) * 0.45;
   renderer.render(scene, camera);
 }
 animate();
 
-/* ---------- RESIZE ---------- */
-addEventListener("resize", () => {
+/* ---------- Resize ---------- */
+addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
