@@ -2,84 +2,82 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>KITE Ramp Angle Visualizer</title>
+  <title>KITE Ramp Simulator (Safe Build)</title>
   <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    body { margin: 0; overflow: hidden; font-family: -apple-system, sans-serif; background: #111827; }
     #ui {
       position: fixed; top: 20px; left: 20px; z-index: 10;
-      background: rgba(255,255,255,0.85); padding: 12px 16px;
+      background: rgba(255,255,255,0.9); padding: 12px 16px;
       border-radius: 10px; backdrop-filter: blur(6px);
     }
-    #ui label { display:block; margin-top:8px; font-size:14px; font-weight:600; }
+    #loading {
+      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
+      font-size: 20px; color:white; background:#111827;
+    }
   </style>
 
-  <!-- ✅ LOAD THREE.JS + CONTROLS + GLTF LOADER (ES MODULES) -->
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.157.0/build/three.module.js";
     import { OrbitControls } from "https://unpkg.com/three@0.157.0/examples/jsm/controls/OrbitControls.js";
     import { GLTFLoader } from "https://unpkg.com/three@0.157.0/examples/jsm/loaders/GLTFLoader.js";
 
-    let scene, camera, renderer, controls;
-    let ramp, person, mixer, walkAction, clock = new THREE.Clock();
-    let direction = 1; // 1 = up slope, -1 = down slope
+    let scene, camera, renderer, controls, ramp, person, mixer;
+    let clock = new THREE.Clock();
+    let direction = 1; // walking direction
 
     init();
     animate();
 
     function init() {
-      // Scene
+      document.getElementById("loading").style.display = "flex";
+
       scene = new THREE.Scene();
-      scene.background = new THREE.Color("#e9eef3");
+      scene.background = new THREE.Color("#1e293b");
 
-      // Camera
-      camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 2000 );
-      camera.position.set(4, 3, 6);
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 2000);
+      camera.position.set(5, 3, 6);
 
-      // Renderer
-      renderer = new THREE.WebGLRenderer({ antialias:true });
+      renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      // Controls
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
-      // Light
-      const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(5,10,7);
+      const light = new THREE.DirectionalLight(0xffffff, 1.2);
+      light.position.set(4,10,5);
       scene.add(light);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-      // Ramp
-      const geometry = new THREE.BoxGeometry(6, 0.15, 2);
-      const material = new THREE.MeshStandardMaterial({ color: "#8c8c8c" });
-      ramp = new THREE.Mesh(geometry, material);
+      // RAMP
+      const rampGeo = new THREE.BoxGeometry(6, 0.15, 2);
+      const rampMat = new THREE.MeshStandardMaterial({ color: "#8b8b8b" });
+      ramp = new THREE.Mesh(rampGeo, rampMat);
       ramp.position.y = 0;
       scene.add(ramp);
 
-      // Load Human Model (L3 high detail)
+      // HUMAN MODEL (CORS SAFE CDN)
       const loader = new GLTFLoader();
-      loader.load(
-        "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Soldier/glTF/Soldier.gltf",
+      loader.load("https://gltf-models.com/models/rigged-man.glb",
         (gltf) => {
           person = gltf.scene;
-          person.scale.set(1.1, 1.1, 1.1);
+          person.scale.set(1.2, 1.2, 1.2);
           person.position.set(0, 0.85, 0);
           scene.add(person);
 
           mixer = new THREE.AnimationMixer(person);
-          walkAction = mixer.clipAction(gltf.animations[0]);
-          walkAction.play();
+          const anim = gltf.animations.find(a=>a.name.toLowerCase().includes("walk")) || gltf.animations[0];
+          mixer.clipAction(anim).play();
+
+          document.getElementById("loading").style.display = "none";
         }
       );
 
-      // UI angle slider
       document.getElementById("angle").addEventListener("input", (e)=>{
-        const deg = Number(e.target.value);
-        ramp.rotation.z = -THREE.MathUtils.degToRad(deg);
+        ramp.rotation.z = -THREE.MathUtils.degToRad(Number(e.target.value));
       });
 
-      window.addEventListener("resize", ()=> {
+      window.addEventListener("resize", ()=>{
         camera.aspect = window.innerWidth/window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -91,10 +89,8 @@
 
       const dt = clock.getDelta();
       if(mixer){
-        mixer.update(dt * 1); // walk speed
-        // Move human up/down slope
+        mixer.update(dt * 1.0);
         person.position.z += direction * dt * 0.8;
-        // At the edges → turn around
         if(person.position.z > 0.8 || person.position.z < -0.8){
           direction *= -1;
           person.rotation.y += Math.PI;
@@ -108,10 +104,12 @@
 </head>
 
 <body>
+  <div id="loading">Loading ramp & walking subject…</div>
+
   <div id="ui">
     <label>Ramp Angle (Degrees)</label>
     <input id="angle" type="range" min="0" max="25" value="7" />
-    <div>Try: 7°, 10°, 12°, 15°</div>
+    <div style="margin-top:4px; font-size:13px;">Try 7°, 10°, 12°, 15°</div>
   </div>
 </body>
 </html>
