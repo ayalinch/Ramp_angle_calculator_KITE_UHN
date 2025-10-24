@@ -6,18 +6,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
   :root { color-scheme: dark; }
-  body { margin:0; background:#111827; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#fff; overflow:hidden; }
+  body {
+    margin: 0;
+    background: #111827;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  /* ✅ FIX: Make the 3D canvas actually visible */
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+    z-index: 1;
+  }
+
   #ui {
     position: fixed; top: 14px; left: 14px; z-index: 10;
-    background: #1f2937; border: 1px solid #2b3648; border-radius: 12px; padding: 12px 14px; width: 260px;
+    background: #1f2937; border: 1px solid #2b3648; border-radius: 12px;
+    padding: 12px 14px; width: 260px;
     box-shadow: 0 12px 30px rgba(0,0,0,.25);
     font-size: 14px;
   }
-  #ui h1 { margin:0 0 8px; font-size:15px; }
-  #ui .row { margin:8px 0; }
-  #ui input[type="range"] { width:100%; }
-  #status { position: fixed; top: 14px; right: 14px; padding:6px 10px; background:#0e3b1d; border:1px solid #1c5c33; border-radius:10px; font-size:12px; color:#c7ffd9; }
-  canvas { display:block; }
+  #ui h1 { margin: 0 0 8px; font-size: 15px; }
+  #ui .row { margin: 8px 0; }
+  #ui input[type="range"] { width: 100%; }
+
+  #status {
+    position: fixed; top: 14px; right: 14px; padding: 6px 10px;
+    background: #0e3b1d; border: 1px solid #1c5c33; border-radius: 10px;
+    font-size: 12px; color: #c7ffd9; z-index: 10;
+  }
 </style>
 </head>
 <body>
@@ -25,17 +48,20 @@
 <!-- UI -->
 <div id="ui">
   <h1>Ramp Angle Sandbox</h1>
-  <div class="row">Incline: <b><span id="incVal">15°</span></b></div>
+  <div class="row">
+    Incline: <b><span id="incVal">15°</span></b>
+  </div>
   <input id="inc" type="range" min="0" max="35" step="1" value="15" />
-  <div class="row" style="margin-top:10px; opacity:.8">Drag to orbit • Wheel to zoom • Right-drag to pan</div>
+  <div class="row" style="margin-top:10px; opacity:.8">
+    Drag to orbit • Wheel to zoom • Right-drag to pan
+  </div>
 </div>
 <div id="status">Loaded r140 ✅</div>
 
-<!-- ✅ Load Three.js r140 (global builds — no modules) BEFORE your code -->
+<!-- ✅ Stable working scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r140/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r140/examples/js/controls/OrbitControls.js"></script>
 
-<!-- Your scene code -->
 <script>
 /* ---------- SCENE ---------- */
 const scene = new THREE.Scene();
@@ -59,7 +85,6 @@ controls.target.set(0, 0.7, 0);
 scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 const dir = new THREE.DirectionalLight(0xffffff, 1.2);
 dir.position.set(4, 6, 4);
-dir.castShadow = false;
 scene.add(dir);
 
 /* ---------- FLOOR ---------- */
@@ -73,25 +98,25 @@ scene.add(floor);
 /* ---------- RAMP ---------- */
 const ramp = new THREE.Mesh(
   new THREE.BoxGeometry(4, 0.15, 1.5),
-  new THREE.MeshStandardMaterial({ color:"#B91C1C" }) // red
+  new THREE.MeshStandardMaterial({ color:"#B91C1C" })
 );
 ramp.position.y = 0.5;
 scene.add(ramp);
 
-/* ---------- PERSON (capsule placeholder) ---------- */
+/* ---------- PERSON (temporary placeholder) ---------- */
 const person = new THREE.Mesh(
   new THREE.CapsuleGeometry(0.2, 0.9, 6, 16),
-  new THREE.MeshStandardMaterial({ color:"#FACC15" }) // yellow
+  new THREE.MeshStandardMaterial({ color:"#FACC15" })
 );
 person.position.set(0, 1.2, 0);
 scene.add(person);
 
-/* ---------- UI: Incline ---------- */
+/* ---------- UI Slider Logic ---------- */
 const slider = document.getElementById('inc');
 const incVal = document.getElementById('incVal');
+
 function setIncline(deg){
   incVal.textContent = deg + "°";
-  // Rotate around Z so it tilts visibly
   ramp.rotation.z = THREE.MathUtils.degToRad(deg);
 }
 slider.addEventListener('input', () => setIncline(Number(slider.value)));
@@ -103,7 +128,7 @@ function animate(){
   requestAnimationFrame(animate);
   controls.update();
 
-  // Simple “walking” sway so something obviously moves
+  // Simple walk sway (just so something moves)
   t += 0.03;
   person.position.z = Math.sin(t) * 0.45;
 
