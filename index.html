@@ -91,12 +91,19 @@ scene.add(fill);
 
 /* ---------- FLOOR ---------- */
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(60, 60),
-  new THREE.MeshStandardMaterial({ color:"#0f172a", roughness:0.9, metalness:0.0, side: THREE.DoubleSide })
+  new THREE.PlaneGeometry(40, 40),
+  new THREE.MeshStandardMaterial({ color:"#8B5A2B", side: THREE.DoubleSide }) // brown floor
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
+  // White back wall behind ramp
+const wall = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 20),
+  new THREE.MeshStandardMaterial({ color:"#ffffff" })
+);
+wall.position.set(0, 5, -8);   // move it behind ramp
+scene.add(wall);
 /* ---------- RAMP: realistic hinge pivot ---------- */
 /* We'll build a pivot group at the hinge line (bottom edge).
    The ramp deck & rails are children; pivot rotates around X to raise far end. */
